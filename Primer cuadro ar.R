@@ -13,7 +13,7 @@ eph_2024_t2 <-eph::get_microdata( year = 2024, period = 2, type = "individual", 
 
 organize_labels(eph_2014_t2, type = "individual")
 organize_labels(eph_2024_t2, type = "individual")
-Población según: Máximo nivel educativo alcanzado Tamaño de establecimiento Percepción de descuento jubilatorio Trabajo a tiempo parcial o completo Trabajo con duración establecida
+#Población según: Máximo nivel educativo alcanzado Tamaño de establecimiento Percepción de descuento jubilatorio Trabajo a tiempo parcial o completo Trabajo con duración establecida
 
 asalariados_2014_t2 <- eph_2014_t2 %>%
   filter(ESTADO == 1, CAT_OCUP == 3) %>% # Ocupados asalariados
@@ -106,3 +106,4 @@ precariedad_rama_14 <- eph_2014_t2%>%
             tasa_no_reg = no_registrados/asalariados) %>% 
   mutate(tasa_no_reg = round(tasa_no_reg,digits = 2),
  )
+
