@@ -1,0 +1,295 @@
+---
+title: "10-de-precariedad"
+author: "Gaspo y Agus"
+date: "2025-02-04"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE)
+```
+```{r, message = FALSE}
+## Cargamos librerias:
+library(tidyverse)
+library(openxlsx)
+library(readxl)
+library(eph)
+library(plotly)
+library(flexdashboard)
+library(usethis)
+library(haven) #para 2014 en formato stata si lo descargo de indec: data_spss <- read_sav("ruta/del/archivo.sav")
+
+#EN TERMINAL
+#git config --global user.name "agustoromero"
+#git config --global user.email "agus.romer.98@gmail.com"
+```
+
+##Sector Informal clase 3:
+
+-Asalariado/a en establecimientos de hasta 5 personas
+
+-Cuentapropistas no profesionales (con ocupación de baja calificación)
+
+-Trabajador/a familiar sin salario
+
+-Patrones no profesionales en establecimientos de hasta 5 personas
+
+
+```{r, include=FALSE, message = FALSE}
+##Defino variables
+variables <- c("CODUSU","NRO_HOGAR","COMPONENTE","ANO4","TRIMESTRE", "AGLOMERADO","REGION", "CH03","CH04","CH06","ESTADO","CAT_OCUP","CAT_INAC","PP04A",                "PP04B_COD","PP07H","P21","P47T","PONDERA","PP04D_COD","PP04C",                "PP07A","PP07C","PP05B2_ANO","PP04B3_ANO","PP07E","NIVEL_ED","PONDIIO","PP04C","PP03G","PP3E_TOT") 
+```
+
+```{r, include=FALSE, message = FALSE}
+## Importo bases
+eph_2014_t2 <-eph::get_microdata( year = 2014, period = 2, type = "individual", vars =  c("CODUSU","NRO_HOGAR","COMPONENTE","ANO4","TRIMESTRE", "AGLOMERADO", "REGION",                       "CH03","CH04","CH06","ESTADO","CAT_OCUP","CAT_INAC","PP04A",              "PP04B_COD","PP07H","P21","P47T","PONDERA","PP04D_COD","PP04C",                "PP07A","PP07C","PP05B2_ANO","PP04B3_ANO","PP07E","NIVEL_ED","PP04C","PP03G","PP3E_TOT") , destfile = NULL ) #variables, sin PONDIIO e impide sacar el ingreso
+
+eph_2024_t2 <-eph::get_microdata( year = 2024, period = 2, type = "individual", vars = variables, destfile = NULL )
+
+organize_labels(eph_2014_t2, type = "individual")
+organize_labels(eph_2024_t2, type = "individual")
+```
+Población según:
+
+Máximo nivel educativo alcanzado
+Tamaño de establecimiento
+Percepción de descuento jubilatorio
+Trabajo a tiempo parcial o completo
+Trabajo con duración establecida
+
+```{r}
+asalariados_2014_t2 <- eph_2014_t2 %>%
+  filter(ESTADO == 1, CAT_OCUP == 3) %>% # Ocupados asalariados
+  mutate(
+    nivel.ed = factor(
+      case_when(NIVEL_ED %in% c(7,1,2,3) ~ "Menor a Secundaria",
+                NIVEL_ED %in% c(4,5) ~ "Secundaria Completa",
+                NIVEL_ED == 6 ~ "Superior Completo",
+                TRUE ~ "Ns/Nr"),
+      levels = c("Menor a Secundaria","Secundaria Completa","Superior Completo")),
+    tamanio.establec = factor(
+      case_when(PP04C %in% 1:6  ~ "Pequeño",
+                PP04C %in% 7:8  ~ "Mediano",
+                PP04C %in% 9:12 ~ "Grande",
+                PP04C %in% 99   ~ "Ns/Nr"),
+      levels = c("Pequeño","Mediano","Grande","Ns/Nr")),
+    descuento_jubil = case_when(PP07H == 1 ~ "Si",
+                                PP07H == 2 ~ "No"),
+    part.time.inv = case_when(PP3E_TOT < 35 & PP03G == 1 ~ "Si",
+                             TRUE ~ "No"),
+    tiempo.determinado = case_when(PP07C ==  1 ~ "Si",
+                                   TRUE ~ "No"))
+
+asalariados_2024_t2 <- eph_2024_t2 %>%
+  filter(ESTADO == 1, CAT_OCUP == 3) %>% # Ocupados asalariados
+  mutate(
+    nivel.ed = factor(
+      case_when(NIVEL_ED %in% c(7,1,2,3) ~ "Menor a Secundaria",
+                NIVEL_ED %in% c(4,5) ~ "Secundaria Completa",
+                NIVEL_ED == 6 ~ "Superior Completo",
+                TRUE ~ "Ns/Nr"),
+      levels = c("Menor a Secundaria","Secundaria Completa","Superior Completo")),
+    tamanio.establec = factor(
+      case_when(PP04C %in% 1:6  ~ "Pequeño",
+                PP04C %in% 7:8  ~ "Mediano",
+                PP04C %in% 9:12 ~ "Grande",
+                PP04C %in% 99   ~ "Ns/Nr"),
+      levels = c("Pequeño","Mediano","Grande","Ns/Nr")),
+    descuento_jubil = case_when(PP07H == 1 ~ "Si",
+                                PP07H == 2 ~ "No"),
+    part.time.inv = case_when(PP3E_TOT < 35 & PP03G == 1 ~ "Si",
+                             TRUE ~ "No"),
+    tiempo.determinado = case_when(PP07C ==  1 ~ "Si",
+                                   TRUE ~ "No"))
+```
+
+```{r}
+calculate_tabulates(base = asalariados_2014_t2,
+                         x = "descuento_jubil",
+                         weights = "PONDERA")
+calculate_tabulates(base = asalariados_2024_t2,
+                         x = "descuento_jubil",
+                         weights = "PONDERA")
+```
+```{r}
+calculate_tabulates(base = asalariados_2014_t2,
+                         x = "descuento_jubil",
+                         y = "nivel.ed",
+                         add.totals = "both",
+                         weights = "PONDERA")
+calculate_tabulates(base = asalariados_2024_t2,
+                         x = "descuento_jubil",
+                         y = "nivel.ed",
+                         add.totals = "both",
+                         weights = "PONDERA")
+```
+```{r}
+calculate_tabulates(base = asalariados_2014_t2,
+                         x = "descuento_jubil",
+                         y = "nivel.ed",
+                         add.percentage = "col", 
+                         weights = "PONDERA")
+calculate_tabulates(base = asalariados_2024_t2,
+                         x = "descuento_jubil",
+                         y = "nivel.ed",
+                         add.percentage = "col", 
+                         weights = "PONDERA")
+```
+```{r}
+precariedad_rama_24 <- eph_2024_t2%>%
+  organize_caes() %>%
+  filter(ESTADO == 1, CAT_OCUP == 3) %>% 
+  group_by(TRIMESTRE,ANO4,caes_eph_label) %>% 
+  summarise(asalariados = sum(PONDERA,na.rm = T),
+            registrados = sum(PONDERA[PP07H == 1],na.rm = T),
+            no_registrados = sum(PONDERA[PP07H == 2],na.rm = T),
+            tasa_no_reg = no_registrados/asalariados) %>% 
+  mutate(tasa_no_reg = round(tasa_no_reg,digits = 2), 
+  )
+
+
+precariedad_rama_14 <- eph_2014_t2%>%
+  organize_caes() %>%
+  filter(ESTADO == 1, CAT_OCUP == 3) %>% 
+  group_by(TRIMESTRE,ANO4,caes_eph_label) %>% 
+  summarise(asalariados = sum(PONDERA,na.rm = T),
+            registrados = sum(PONDERA[PP07H == 1],na.rm = T),
+            no_registrados = sum(PONDERA[PP07H == 2],na.rm = T),
+            tasa_no_reg = no_registrados/asalariados) %>% 
+  mutate(tasa_no_reg = round(tasa_no_reg,digits = 2),
+ )
+```
+```{r}
+#clase 4
+aglomerados <- read_excel("Fuentes/Aglomerados EPH.xlsx")
+regiones <- read_excel("Fuentes/Regiones.xlsx")
+salario_y_no_registro <- eph_2024_t2 %>% 
+  filter(ESTADO == 1, CAT_OCUP == 3) %>% 
+  group_by(ANO4,TRIMESTRE,REGION,AGLOMERADO) %>% 
+  summarise(tasa_no_reg = sum(PONDERA[PP07H == 2])/sum(PONDERA),
+            salario_prom = weighted.mean(P21,PONDIIO),
+            asalariados = sum(PONDERA)) %>% 
+  ungroup() %>% 
+  left_join(aglomerados,by = c("AGLOMERADO")) %>% 
+  left_join(regiones,by = c("REGION"))
+
+salario_y_no_registro
+```
+```{r}
+capa1 <- ggplot(data = salario_y_no_registro,
+                aes(x = salario_prom,
+                y = tasa_no_reg,
+                size = asalariados,
+                color = Region))
+
+capa2 <- capa1 +  
+  geom_point()
+
+capa3 <- capa2 +
+  labs(title = "Salario promedio y tasa de no registro por aglomerados",
+       subtitle = "31 Aglomerados. 1er Trimestre de 2019.",
+       x = "Salario promedio",
+       y = "Tasa de no registro")
+
+capa3
+
+no_reg_aglom <- capa3 +
+theme_minimal()+
+  guides(size = "none")+
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1))+
+  scale_x_continuous(labels = scales::number_format(big.mark = ".",decimal.mark = ","))
+
+
+no_reg_aglom
+```
+
+```{r}
+grafico_final <- ggplot(data = salario_y_no_registro,
+       aes(x = salario_prom,
+       y = tasa_no_reg,
+       size = asalariados,
+       aglo = Nom_Aglo, #Aca creo un parametro del aes que depende de Nom_Aglo
+       color = Region))+
+  geom_point()+
+  labs(title = "Salario promedio y tasa de no registro por aglomerados",
+       subtitle = "31 Aglomerados. 1er Trimestre de 2019.",
+       x = "Salario promedio",
+       y = "Tasa de no registro")+
+  theme_minimal()+
+  guides(size = F)+
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1))+
+  scale_x_continuous(labels = scales::number_format(big.mark = ".",decimal.mark = ","))
+
+grafico_final
+
+```
+
+```{r}
+#library(GGally)
+#ggpairs(asalariados_2024_t2 %>% select(-CODUSU) %>% select(-PP04B_COD) %>% select(-PP04D_COD),  mapping = aes(color =  as.factor(CAT_OCUP)))
+```
+
+```{r}
+base_ingresos <- eph_2024_t2 %>%
+  left_join(regiones) %>% 
+  filter(P21>0) %>% 
+  mutate(Sexo = case_when(CH04 == 1 ~ "Varón",
+                          CH04 == 2 ~ "Mujer")) 
+
+#install.packages("ggridges")
+#library(ggridges) 
+#install.packages("ggthemes")
+#library(ggthemes)
+#install.packages("esquisse")
+#esquisse::esquisser()
+
+ggplot(base_ingresos, aes(x = P21, y = Sexo, fill=Sexo)) + 
+  geom_density_ridges()+
+  scale_fill_gdocs()+ # Elijo paleta de colores para el relleno (fill)
+  scale_x_continuous(limits = c(0,60000))#Restrinjo el gráfico hasta ingresos de $60000
+```
+```{r}
+ggplot(base_ingresos, aes(x = Region, y = P21)) +
+  geom_boxplot()+
+  scale_y_continuous(limits = c(0, 40000))#Restrinjo el gráfico hasta ingresos de $40000
+```
+```{r}
+
+ingresos_asalariados <- asalariados_2024_t2 %>%
+  left_join(regiones) %>%
+  filter(P21 > 0) %>%
+  mutate(
+    P21 = as.numeric(P21),
+    PONDIIO = as.numeric(PONDIIO),
+    Sexo = case_when(CH04 == 1 ~ "Varón",
+                     CH04 == 2 ~ "Mujer"),
+    IngresoPonderado = P21 * PONDIIO
+  )
+
+ggplot(ingresos_asalariados, aes(x= Region, y = P21 ,fill = Region )) +
+  geom_boxplot()+
+  scale_y_continuous(limits = c(0, 1000000))+
+  facet_wrap(vars(Sexo))
+```
+
+```{r}
+ggplot(ingresos_asalariados, aes(x= Sexo, y = weighted.mean(PONDIIO(P21)), group = Sexo, fill = Sexo )) +
+  geom_boxplot()+
+  scale_y_continuous(limits = c(0, 100000))+
+  facet_wrap(vars(Region),nrow = 1) +
+  theme(legend.position = "none")
+
+ggplot(ingresos_asalariados, aes(x = Sexo, y = P21, group = Sexo, fill = Sexo)) +
+  geom_boxplot() +
+  scale_y_continuous(limits = c(0, 750000)) +
+  facet_wrap(vars(Region), nrow = 1) +
+  theme(legend.position = "none") +
+  stat_summary(fun = function(x) weighted.mean(x, w = ingresos_asalariados$PONDIIO), 
+               geom = "point", 
+               size = 3, 
+               color = "red")
+```
+```{r}
+
+```
+
